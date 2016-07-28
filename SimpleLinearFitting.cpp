@@ -348,7 +348,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
   start_line = Ptr;
   new_start_line = Ptr;
   fit_flag = text_wholefile;
-  while (new_start_line->Name != M02) {
+  while (start_line->Name != M02) {
     if (*(fit_flag++) != 0) {
       start_line++;
       continue;

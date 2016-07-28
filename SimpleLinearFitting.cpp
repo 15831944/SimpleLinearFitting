@@ -282,7 +282,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
   if (MINFITLENGTH > 1.0) MINFITLENGTH = 1;
   ArcLimit = MINFITLENGTH;
 
-//Ğ¡Ô²»¡ÄâºÏ
+//å°åœ†å¼§æ‹Ÿåˆ
 	//start_line = Ptr;
 	//while (start_line->Name != M02)
 	//{
@@ -299,23 +299,23 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 	//	}
 	//	start_line++;
 	//}
-//Ğ¡Ïß¶ÎÄâºÏ
+//å°çº¿æ®µæ‹Ÿåˆ
 	start_line = next_line = Ptr;
   fit_flag = text_wholefile;
 	while(start_line->Name!=M02)
 	{
     *(fit_flag++) = 0;
-		//ºÏ²¢Ğ¡Ïß¶Î£¬ÔÚ¹æ¶¨µÄ¾«¶ÈºÍ²½ÊıÄÚ
+		//åˆå¹¶å°çº¿æ®µï¼Œåœ¨è§„å®šçš„ç²¾åº¦å’Œæ­¥æ•°å†…
 		next_line = start_line + 1; 				
 		TotalLen = start_line->Length;
 		if (start_line->Name == G01) 	
     {
 			while (TotalLen < MINFITLENGTH && next_line->Name==G01)
 			{
-				TotalLen = sqrt(pow(start_line->X0-next_line->X, 2) + pow(start_line->Y0-next_line->Y, 2));	//Êµ¼ÊÄâºÏºóµÄ³¤¶È
+				TotalLen = sqrt(pow(start_line->X0-next_line->X, 2) + pow(start_line->Y0-next_line->Y, 2));	//å®é™…æ‹Ÿåˆåçš„é•¿åº¦
 				next_line++;
 			}
-			if (TotalLen >= MINFITLENGTH && next_line->Name == G01)		//ÅĞ¶ÏÏÂ´ÎÄâºÏµÄ³¤¶È
+			if (TotalLen >= MINFITLENGTH && next_line->Name == G01)		//åˆ¤æ–­ä¸‹æ¬¡æ‹Ÿåˆçš„é•¿åº¦
 			{
 				new_start_line = next_line;
 				new_next_line = new_start_line + 1;
@@ -324,11 +324,11 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 				{
 					while (Len < MINFITLENGTH && new_next_line->Name == G01)
 					{
-						Len = sqrt(pow(new_start_line->X0-new_next_line->X, 2) + pow(new_start_line->Y0-new_next_line->Y, 2)); //Êµ¼ÊÄâºÏºóµÄ³¤¶È
+						Len = sqrt(pow(new_start_line->X0-new_next_line->X, 2) + pow(new_start_line->Y0-new_next_line->Y, 2)); //å®é™…æ‹Ÿåˆåçš„é•¿åº¦
 						new_next_line++;
 					}
 				}
-				if (Len < MINFITLENGTH && Len > 0)					//ÏÂ´ÎÄâºÏ´ï²»µ½¹æ¶¨µÄ³¤¶È
+				if (Len < MINFITLENGTH && Len > 0)					//ä¸‹æ¬¡æ‹Ÿåˆè¾¾ä¸åˆ°è§„å®šçš„é•¿åº¦
 					next_line = new_next_line;
 			}
     }
@@ -344,7 +344,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 		}
 		start_line++;
 	}
-  // ÕûºÏÄâºÏºóµÄ½á¹¹ÌåÊı×é
+  // æ•´åˆæ‹Ÿåˆåçš„ç»“æ„ä½“æ•°ç»„
   start_line = Ptr;
   new_start_line = Ptr;
   fit_flag = text_wholefile;
@@ -355,6 +355,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
     }
     *(new_start_line++) = *(start_line++);
   }
+  *new_start_line = *start_line;
 }
 
 /*
@@ -370,7 +371,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
   	if (MINFITLENGTH > 1.0) MINFITLENGTH = 1;
   	ArcLimit = MINFITLENGTH;
 
-	//¼ÆËãGfileFloatNoKerfÒÑ¾­Ê¹ÓÃµÄ´óĞ¡
+	//è®¡ç®—GfileFloatNoKerfå·²ç»ä½¿ç”¨çš„å¤§å°
 	start_line = GfileFloatNoKerf;
 	NoKerfUsedNum = 1;
 	while (start_line->Name != M02)
@@ -379,16 +380,16 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 		NoKerfUsedNum++;
 	}
 
-	NoKerfUsedFlag = 0;						//´ÓGfileFloatNoKerfÖĞÖĞ¼ä¿ªÊ¼Ê¹ÓÃ
-	if (NoKerfUsedNum > GfileTotalRows/2)		//Ê¹ÓÃÁ¿³¬¹ıÁËGfilesizeµÄÒ»°ë
+	NoKerfUsedFlag = 0;						//ä»GfileFloatNoKerfä¸­ä¸­é—´å¼€å§‹ä½¿ç”¨
+	if (NoKerfUsedNum > GfileTotalRows/2)		//ä½¿ç”¨é‡è¶…è¿‡äº†Gfilesizeçš„ä¸€åŠ
 	{
-  		// ±£´æGfileFloatNoKerfÊı¾İ£¬ÔÙÇå¿ÕGfileFloatNoKerf
+  		// ä¿å­˜GfileFloatNoKerfæ•°æ®ï¼Œå†æ¸…ç©ºGfileFloatNoKerf
 		yaffs_SaveFile((char *)STRUCT_DATA_FILE_PATH, (char *)GfileFloatNoKerf, O_CREAT | O_TRUNC| O_RDWR, S_IREAD | S_IWRITE, sizeof(GCodeARRAY_STRUCT) * NoKerfUsedNum);
   		memset(GfileFloatNoKerf, 0, sizeof(GCodeARRAY_STRUCT) * GfileTotalRows);
-		NoKerfUsedFlag = 1;					//´ÓGfilefloatNokerfµÄ¿ªÍ·Ê¹ÓÃ
+		NoKerfUsedFlag = 1;					//ä»GfilefloatNokerfçš„å¼€å¤´ä½¿ç”¨
 	}
 
-  	// Ğ¡Ô²»¡ÄâºÏ, Í¬Ê±½«GfileFloatKerf×ªÒÆµ½GfileFloatNoKerfÖĞÈ¥£¬ÔÙÇå¿ÕGfileFloatKerf
+  	// å°åœ†å¼§æ‹Ÿåˆ, åŒæ—¶å°†GfileFloatKerfè½¬ç§»åˆ°GfileFloatNoKerfä¸­å»ï¼Œå†æ¸…ç©ºGfileFloatKerf
   	src_ptr = Ptr;
   	dst_ptr = NoKerfUsedFlag==0?(GfileFloatNoKerf+GfileTotalRows/2):GfileFloatNoKerf;
   	while (src_ptr->Name != M02) 
@@ -407,10 +408,10 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 
     	*(dst_ptr++) = *(src_ptr++);
   	}
-	*(dst_ptr++) = *(src_ptr++);											//¸´ÖÆM02
+	*(dst_ptr++) = *(src_ptr++);											//å¤åˆ¶M02
   	memset(GfileFloatKerf, 0, sizeof(GCodeARRAY_STRUCT) * GfileTotalRows);
 
-  	//  Ğ¡Ïß¶ÎÄâºÏ
+  	//  å°çº¿æ®µæ‹Ÿåˆ
   	dst_ptr = GfileFloatKerf;
   	start_line = next_line = NoKerfUsedFlag==0?(GfileFloatNoKerf+GfileTotalRows/2):GfileFloatNoKerf;;
   	while (start_line->Name != M02) 
@@ -422,11 +423,11 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
       		TotalLen = start_line->Length;
       		while (TotalLen < MINFITLENGTH && next_line->Name == G01)
 			{
-				TotalLen = sqrt(pow(start_line->X0-next_line->X, 2) + pow(start_line->Y0-next_line->Y, 2));	//Êµ¼ÊÄâºÏºóµÄ³¤¶È
+				TotalLen = sqrt(pow(start_line->X0-next_line->X, 2) + pow(start_line->Y0-next_line->Y, 2));	//å®é™…æ‹Ÿåˆåçš„é•¿åº¦
 				next_line++;
 			}
 
-			if (TotalLen >= MINFITLENGTH && next_line->Name==G01)		//ÅĞ¶ÏÏÂ´ÎÄâºÏµÄ³¤¶È
+			if (TotalLen >= MINFITLENGTH && next_line->Name==G01)		//åˆ¤æ–­ä¸‹æ¬¡æ‹Ÿåˆçš„é•¿åº¦
 			{
 				new_start_line = next_line;
 				new_next_line = new_start_line + 1;
@@ -436,7 +437,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 				{
 					while (Len< MINFITLENGTH && new_next_line->Name==G01)
 					{
-						Len = sqrt(pow(new_start_line->X0-new_next_line->X, 2) + pow(new_start_line->Y0-new_next_line->Y, 2)); //Êµ¼ÊÄâºÏºóµÄ³¤¶È
+						Len = sqrt(pow(new_start_line->X0-new_next_line->X, 2) + pow(new_start_line->Y0-new_next_line->Y, 2)); //å®é™…æ‹Ÿåˆåçš„é•¿åº¦
 						new_next_line++;
 					}
 				}		
@@ -447,7 +448,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
       		}
       		next_line--;
       		if (next_line > start_line) 
-			{												//´ËÊ±µÄnext_lineÒ»¶¨ÊÇ G01
+			{												//æ­¤æ—¶çš„next_lineä¸€å®šæ˜¯ G01
         		if (next_line->Name == M02) 
         		{
           			start_line->X = next_line->X0;
@@ -481,7 +482,7 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
     	start_line++;
   	}
 
-  	// »Ö¸´GfileFloatNoKerfÊı¾İ
+  	// æ¢å¤GfileFloatNoKerfæ•°æ®
   	if (NoKerfUsedFlag == 1)
   	{
 		yaffs_ReadParaFile((char *)STRUCT_DATA_FILE_PATH, (char *)GfileFloatNoKerf);

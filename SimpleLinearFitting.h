@@ -22,3 +22,6 @@ std::string TransformGCodeLine(const GCodeARRAY_STRUCT &gcode_array);
 
 void FitSmallLine(GCodeARRAY_STRUCT *Ptr);
 double GetGCodeLength(GCodeARRAY_STRUCT *GCodeArryPtr);
+int small_line_merge_to_arc (GCodeARRAY_STRUCT *PtrLine, GCodeARRAY_STRUCT *PtrArc);
+void fit_small_line_into_circle (GCodeARRAY_STRUCT *Ptr, double fit_line_accuracy);
+void fit_small_arc (GCodeARRAY_STRUCT *Ptr);

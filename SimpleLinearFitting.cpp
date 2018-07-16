@@ -272,34 +272,201 @@ double GetGCodeLength(GCodeARRAY_STRUCT *GCodeArryPtr) {
   return sqrt(pow((GCodeArryPtr->X-GCodeArryPtr->X0), 2) + pow((GCodeArryPtr->Y-GCodeArryPtr->Y0), 2));
 }
 
+/**************************************************************************************************
+函数功能: 小线段合并到圆弧上
+
+返回值:
+	0 : 成功
+	-1: 失败
+
+注意:
+	(1): 小线段合并到圆弧上时，必须保证圆弧的弦长大于小线段的长度，否则有可能导致圆弧起末点发生变化
+		 使整圆变成小圆弧，或者小圆弧变成整圆，这里取1.5倍弦长
+	(2): 合并后圆心偏差超过精度范围，则取消合并。
+**************************************************************************************************/
+int small_line_merge_to_arc (GCodeARRAY_STRUCT *PtrLine, GCodeARRAY_STRUCT *PtrArc)
+{
+	GCodeARRAY_STRUCT NewArc;
+	double r1, r2;
+	double arc_chord_length;				//圆弧弦长
+	double line_length;						//线段长度
+	double length;
+  
+  NewArc = *PtrArc;
+  //1. 检查弦长是否小于小线段长度
+	arc_chord_length = sqrt (pow (NewArc.X0 - NewArc.X, 2) + pow (NewArc.Y0 - NewArc.Y, 2));
+  line_length = sqrt (pow (PtrLine->X0 - PtrLine->X, 2) + pow (PtrLine->Y0 - PtrLine->Y, 2));
+  
+  if (IsLesser (1.5 * arc_chord_length, line_length))
+		return -1;								//圆弧弦长小于线段长度，拟合后圆弧可能会出错，整圆变成小圆弧，或者小圆弧变成整圆。
+
+  //2. 检查直线和圆弧是否相接    
+	if (IsEqual (PtrLine->X0, NewArc.X) && IsEqual (PtrLine->Y0, NewArc.Y))
+	{
+    NewArc.X = PtrLine->X;
+		NewArc.Y = PtrLine->Y;
+  }
+  else if (IsEqual (PtrLine->X, NewArc.X0) && IsEqual (PtrLine->Y, NewArc.Y0))
+	{
+		NewArc.X0 = PtrLine->X0;
+		NewArc.Y0 = PtrLine->Y0;
+	}
+  else
+    return -1;								//直线和圆弧不相接，无法合并
+  
+  //3. 合并重新计算圆心，圆心在精度范围内，则合并成功
+  r1 = sqrt ((NewArc.X0 - NewArc.I) * (NewArc.X0 - NewArc.I) + (NewArc.Y0 - NewArc.J) * (NewArc.Y0 - NewArc.J));		//计算起点相对圆心半径
+  r2 = sqrt ((NewArc.X - NewArc.I) * (NewArc.X - NewArc.I) + (NewArc.Y - NewArc.J) * (NewArc.Y - NewArc.J));			//计算末点相对圆心半径
+  if (calculate_arc_center (&NewArc, r1, r2, arc_center_adjust_accuracy) == 0)
+        *PtrArc = NewArc;					    //计算成功	
+	else
+		return -1;
+
+	return 0;
+  
+}
+
+/**************************************************************************************************
+拟合圆弧之间的小线段
+
+参数:
+    fit_line_accuracy  : 小线段长度阈值
+    not_fit_min_length : 未拟合的线段最小长度
+    not_fit_cnt        : 未拟合的小线段个数
+    fit_to_arc_cnt     : 拟合进圆弧的小线段个数
+
+优先选择半径与弦长比值较小的圆弧拟合
+**************************************************************************************************/
+void fit_small_line_into_circle(GCodeARRAY_STRUCT *Ptr, double fit_line_accuracy, double *not_fit_min_length, U32 *not_fit_cnt, U32 *fit_to_arc_cnt)
+{
+  GCodeARRAY_STRUCT *PtrHeader = Ptr, *NextPtr, *PrePtr, *PtrArc;
+	double line_not_fit_min_length = fit_line_accuracy;
+	int line_not_fit_cnt = 0, line_fit_to_arc_cnt = 0;
+  
+  if (Ptr->Name == M02)
+    return;
+
+  //1. 小线段合并到圆弧上
+	PrePtr = Ptr;
+	Ptr++;
+	NextPtr = Ptr+1;
+	while (Ptr->Name != M02 && NextPtr != M02)
+  {
+    if (Ptr->Name == G01)
+		{
+			Ptr->Length = sqrt (pow (Ptr->X - Ptr->X0, 2) + pow (Ptr->Y - Ptr->Y0, 2));
+			if (IsLesser (Ptr->Length, fit_line_accuracy))				//线段长度不足
+			{
+        //前一段是圆弧
+        if ((PrePtr->Name == G02 || PrePtr->Name == G03) &&
+           (small_line_merge_to_arc (Ptr, PrePtr) == 0))       //合并到前一个圆弧成功
+        {
+          Ptr->X0 = Ptr->X;
+					Ptr->Y0 = Ptr->Y;
+					Ptr->Name = GGG;							        //删去G01
+					line_fit_to_arc_cnt++;
+        }
+        else if ((NextPtr->Name == G02 || NextPtr->Name == G03) &&
+                 (small_line_merge_to_arc (Ptr, NextPtr) == 0)) //合并到后一个圆弧成功
+        {
+          Ptr->X = Ptr->X0;
+					Ptr->Y = Ptr->Y0;
+					Ptr->Name = GGG;                                    //删去G01
+					line_fit_to_arc_cnt++;
+        }
+        else
+        {
+          if (IsLesser (Ptr->Length, line_not_fit_min_length))
+            line_not_fit_min_length = Ptr->Length;
+          line_not_fit_cnt++;								    //无法合并
+        }
+      }
+    }
+    PrePtr = Ptr;
+		Ptr++;
+		NextPtr = Ptr+1;
+  }
+  //2. 删除无效的线段
+  Ptr = PtrHeader;
+	while (Ptr->Name != M02)
+	{
+		if (Ptr->Name == GGG)
+    {
+      Ptr++;														//跳过无效的指令
+			continue;
+    }
+    *(PtrHeader++) = *(Ptr++);
+  }
+  *PtrHeader = *Ptr;													//拷贝M02
+  
+	if (not_fit_cnt != NULL)
+		  *not_fit_cnt = line_not_fit_cnt;
+  if (fit_to_arc_cnt != NULL)
+      *fit_to_arc_cnt = line_fit_to_arc_cnt;
+  if (not_fit_min_length != NULL)
+      *not_fit_min_length = line_not_fit_min_length;      
+}
+
+/****************************************************************************************
+将小圆弧拟合成小线段
+****************************************************************************************/
+void fit_small_arc (GCodeARRAY_STRUCT *Ptr)
+{
+  while (Ptr->Name != M02)
+  {
+    if (Ptr->Name == G02 || Ptr->Name == G03)
+    {
+      // calculate_arc_length_radius_and_angle (Ptr);
+      double alpha = (Ptr->Name == G02) ? (Ptr->StartAngle - Ptr->EndAngle) : (Ptr->EndAngle - Ptr->StartAngle);
+      if (is_arc_in_fit_to_line_accuracy (Ptr->R, alpha, arc_fit_to_line_accuracy) == 0)
+      {
+         Ptr->Name = G01;
+      }
+    }
+    Ptr++;
+  }
+}
+
+/**********************************************************************************************
+函数功能: 小线段拟合
+
+拟合步骤:
+    1. 小圆弧拟合成线段
+    2. 低于阈值的小线段合并到直线上
+    3. 低于阈值的小线段合并到圆弧上
+**********************************************************************************************/
 void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
   double ArcLimit, TotalLen, Len;
   GCodeARRAY_STRUCT *start_line, *next_line, *new_start_line, *new_next_line;
   char *fit_flag;
-
+  double not_fit_min_length;
+  unsigned int not_fit_cnt, fit_to_arc_cnt;
   //double MINFITLENGTH = AllPara_New.SystemPara.MaxCutSpeed/60*INTERPOLATION_T/2;
   double MINFITLENGTH = 2;
   if (MINFITLENGTH > 1.0) MINFITLENGTH = 1;
   ArcLimit = MINFITLENGTH;
 
-//小圆弧拟合
-	//start_line = Ptr;
-	//while (start_line->Name != M02)
-	//{
-	//	if ((start_line->Name==G02 || start_line->Name==G03)
- //       && (start_line->Length <= ArcLimit || start_line->R <= ArcLimit/2 || start_line->R <= AllPara_New.GeneralPara.KerfValue))
-	//	{
-	//		start_line->Name = G01;
-	//		start_line->R = 0;
-	//		start_line->I = 0;
-	//		start_line->J = 0;
-	//		start_line->StartAngle = 0;
-	//		start_line->EndAngle = 0;
-	//		start_line->Length = GetGCodeLength(start_line);
-	//	}
-	//	start_line++;
-	//}
-//小线段拟合
+//1. 小圆弧拟合成小线段
+  fit_small_arc(Ptr);
+
+//2. 计算小线段拟合的最大长度
+	if (MINFITLENGTH > 1.0) MINFITLENGTH = 1;
+	#if (KERFVALUE_TO_SMALLLINELEN == 1)
+  if (MINFITLENGTH < AllPara_New.GeneralPara.KerfValue)			//小于割缝值
+	{
+		start_line = Ptr;
+		while (start_line->Name!=M02)								//检查代码中是否需要加割缝
+		{
+      if (start_line->Name == G41 || start_line->Name == G42)	//需要加割缝
+			{
+				MINFITLENGTH = AllPara_New.GeneralPara.KerfValue;	//小线段拟合的长度不能低于割缝的长度
+			}
+      start_line++;
+    }
+  }
+  #endif
+
+//3. 小线段拟合
 	start_line = next_line = Ptr;
   fit_flag = text_wholefile;
 	while(start_line->Name!=M02)
@@ -344,7 +511,8 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
 		}
 		start_line++;
 	}
-  // 整合拟合后的结构体数组
+
+  //4. 整合拟合后的结构体数组
   start_line = Ptr;
   new_start_line = Ptr;
   fit_flag = text_wholefile;
@@ -355,7 +523,10 @@ void FitSmallLine(GCodeARRAY_STRUCT *Ptr) {
     }
     *(new_start_line++) = *(start_line++);
   }
-  *new_start_line = *start_line;
+  *new_start_line = *start_line; // 拷贝M02
+  
+  //5. 将剩余的小线段拟合进圆弧
+  fit_small_line_into_circle (Ptr, MINFITLENGTH, &not_fit_min_length, &not_fit_cnt, &fit_to_arc_cnt);			//拟合圆弧之间的小线段
 }
 
 /*
